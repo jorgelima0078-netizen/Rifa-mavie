@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Controle da Rifa — Ellena Mavie</title>
+<style>
+:root{--pink:#e84d83;--pink2:#fff0f5;--ink:#57263a;--green:#16834a;--gold:#c47b00;--line:#f2bfd0}
+*{box-sizing:border-box}body{margin:0;background:#fff7fa;color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{background:linear-gradient(135deg,#f9b7cc,#ffe7ef);padding:22px 16px;text-align:center;border-bottom:2px solid #f4c5d5}
+header h1{margin:0;color:#a91f55;font-size:clamp(1.35rem,4vw,2rem)}header p{margin:6px 0 0}
+main{max-width:1000px;margin:auto;padding:16px;display:grid;gap:16px}
+.panel{background:white;border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:0 4px 14px #9d45600c}
+h2{font-size:1.1rem;margin:0 0 12px}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.stat{background:var(--pink2);border-radius:12px;padding:12px;text-align:center}.stat b{display:block;font-size:1.5rem;color:#b3245b}.stat span{font-size:.82rem}
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:9px}
+input,select,button{font:inherit;border-radius:10px;padding:10px;border:1px solid #e8b4c6;background:white;color:var(--ink);min-width:0}
+button{cursor:pointer;font-weight:650}button.primary{background:var(--pink);color:white;border-color:var(--pink)}button:active{transform:scale(.98)}
+.hint{font-size:.85rem;color:#80576a;margin:9px 0 0}
+.grid{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:6px}
+.num{padding:8px 0;text-align:center;border-radius:9px;border:1px solid #efc0d0;background:#fff8fb;font-size:.9rem}
+.num.sold{background:#e0f5e8;border-color:#8dd4a7;color:#116d3c}.num.reserved{background:#fff0cc;border-color:#edc36c;color:#885700}
+.num.selected{outline:3px solid #8b5cf6;outline-offset:1px}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:.85rem;margin-bottom:10px}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px}
+.people{display:grid;gap:8px}.person{border:1px solid #f0c8d5;border-radius:10px;padding:10px;display:flex;justify-content:space-between;gap:8px;align-items:flex-start}.person small{display:block;color:#865c6d;margin-top:3px}.person button{padding:6px 9px}
+.row{display:flex;gap:8px;flex-wrap:wrap}.row>*{flex:1}
+.status{font-weight:700}.status.sold{color:var(--green)}.status.reserved{color:var(--gold)}.empty{color:#906a7b;font-size:.9rem}
+footer{text-align:center;padding:12px;color:#916779;font-size:.8rem}
+@media(max-width:560px){.grid{grid-template-columns:repeat(6,minmax(0,1fr));gap:5px}.num{font-size:.82rem;padding:8px 0}.stats{grid-template-columns:repeat(3,minmax(0,1fr))}.stat{padding:9px 4px}.stat b{font-size:1.25rem}}
+</style>
+</head>
+<body>
+<header><h1>🎀 Controle da Rifa Ellena Mavie 🎀</h1><p>Marque vendidos, reservas e acompanhe os nomes.</p></header>
+<main>
+<section class="panel">
+<h2>Resumo</h2>
+<div class="stats">
+<div class="stat"><b id="countMarked">0</b><span>Números marcados</span></div>
+<div class="stat"><b id="countSold">0</b><span>✅ Vendidos</span></div>
+<div class="stat"><b id="countReserved">0</b><span>🏷 Reservados</span></div>
+</div>
+<p class="hint">Total de números: <b>150</b> · Cada número pode estar livre, vendido ou reservado.</p>
+</section>
+<section class="panel">
+<h2>Marcar ou desmarcar número</h2>
+<div class="controls">
+<input id="numberInput" type="number" min="1" max="150" placeholder="Número (1 a 150)">
+<input id="personInput" type="text" placeholder="Nome da pessoa">
+<select id="statusInput"><option value="sold">✅ Marcar como vendido</option><option value="reserved">🏷 Marcar como reservado</option></select>
+<button class="primary" id="applyBtn">Aplicar marcação</button>
+<button id="clearBtn">Desmarcar número</button>
+</div>
+<p class="hint">Toque em um número na grade para selecioná-lo. Ao aplicar, informe o nome da pessoa e escolha vendido ou reservado. Desmarcar libera o número.</p>
+<div id="selectionMessage" class="hint">Nenhum número selecionado.</div>
+</section>
+<section class="panel">
+<h2>Grade dos números</h2>
+<div class="legend"><span><i class="dot" style="background:#16834a"></i>✅ Vendido</span><span><i class="dot" style="background:#c47b00"></i>🏷 Reservado</span><span><i class="dot" style="background:#f8dce6"></i>Livre</span><span><i class="dot" style="background:#8b5cf6"></i>Selecionado</span></div>
+<div id="numberGrid" class="grid"></div>
+</section>
+<section class="panel">
+<h2>Buscar pessoa ou número</h2>
+<div class="row"><input id="searchInput" placeholder="Digite um nome ou número para buscar"><button id="exportBtn">Exportar lista (.txt)</button></div>
+<p class="hint">A lista abaixo mostra os nomes e seus números, agrupados por status.</p>
+<div id="peopleList" class="people"></div>
+</section>
+</main>
+<footer>Os dados ficam salvos neste aparelho/navegador. Use “Exportar lista” para guardar uma cópia.</footer>
+<script>
+const INITIAL_ENTRIES = [
+ ["Phamela",[6,8,12,29,30,32,50],"sold"],
+ ["Wellerson",[18,31],"sold"],
+ ["Rayane",[17,21],"sold"],
+ ["Mainha",[53,72,85,100,114,145],"sold"],
+ ["Daniel",[105],"sold"],
+ ["Painho",[11,15,20,22,24,55,58,68,71,81],"sold"],
+ ["Geronildo da Silva",[127,128],"sold"],
+ ["Elza Maria",[37],"sold"],
+ ["Mãe Jack",[5,51],"sold"],
+ ["Tatá",[10,45],"reserved"],
+ ["Eduardo Souza (babá)",[3,14,25,62],"sold"],
+ ["Estefani (casula)",[95],"sold"],
+ ["Clemilson",[19,35],"sold"],
+ ["Lucas Barte",[23],"sold"],
+ ["Marlon Miranda",[146,147,148,149,150],"sold"],
+ ["Alice Lima",[117,118],"sold"],
+ ["Hellary",[13,77],"reserved"],
+ ["Emily",[42],"sold"],
+ ["Lucijane",[1],"sold"],
+ ["Emily (2ª entrada)",[131],"sold"],
+ ["Zenaide",[44],"sold"],
+ ["Carla Helena",[73],"sold"],
+ ["Delynha",[75],"reserved"],
+ ["Gilvania Moura",[112],"sold"],
+ ["Roseane",[4],"sold"],
+ ["Elisangela",[47],"sold"],
+ ["LiLi",[38],"sold"],
+ ["Cristiana",[33],"reserved"],
+ ["Ismael",[34,41],"sold"],
+ ["Rayssa",[40,54,98],"sold"],
+ ["Neguinho",[56],"sold"],
+ ["Gabriel (casca)",[48,61],"sold"],
+ ["Renan",[2,136],"sold"],
+ ["Orley",[16,99],"sold"],
+ ["Gelton (vaqueiro)",[7,60],"sold"],
+ ["Irapoan (tio)",[28,46,140],"sold"],
+ ["Irmã Ninha",[36,49],"sold"],
+ ["Vilma",[108],"sold"],
+ ["Queila",[57],"sold"],
+ ["Jeane (de lapoan)",[80],"sold"],
+ ["Maeli (Irapoan)",[82,111],"sold"],
+ ["Jéssica",[39,144],"reserved"],
+ ["Maria Angelita (Painho)",[27,94],"sold"],
+ ["Jonas Gomes",[43,52,70,86],"reserved"],
+ ["Cachinhos (Myrna)",[9],"sold"]
+];
+const STORAGE_KEY='rifa_ellena_mavie_prefilled_v2';
+let records={};
+INITIAL_ENTRIES.forEach(([name,numbers,status]) => numbers.forEach(n => { records[n]={name,status}; }));
+try {
+ const saved=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');
+ if(saved && typeof saved==='object') records=saved;
+ else localStorage.setItem(STORAGE_KEY,JSON.stringify(records));
+} catch(e) {}
+let selected=null;
+const $=id=>document.getElementById(id);
+function save(){localStorage.setItem(STORAGE_KEY,JSON.stringify(records))}
+function validNum(n){return Number.isInteger(n)&&n>=1&&n<=150}
+function statusLabel(s){return s==='sold'?'✅ Vendido':'🏷 Reservado'}
+function getCounts(){let vals=Object.values(records);return {marked:vals.length,sold:vals.filter(x=>x.status==='sold').length,reserved:vals.filter(x=>x.status==='reserved').length}}
+function renderGrid(){
+ const grid=$('numberGrid');grid.innerHTML='';
+ for(let n=1;n<=150;n++){
+  const r=records[n],b=document.createElement('button');b.className='num'+(r?' '+r.status:'')+(selected===n?' selected':'');
+  b.textContent=(r?(r.status==='sold'?'✅':'🏷')+' ':'')+n;
+  b.title=r?`${n} — ${r.name} — ${statusLabel(r.status)}`:`Número ${n} livre`;
+  b.setAttribute('aria-label',b.title);
+  b.onclick=()=>{selected=selected===n?null:n;$('numberInput').value=selected||'';$('selectionMessage').textContent=selected?`Número ${selected} selecionado${records[selected]?' — '+records[selected].name+' ('+statusLabel(records[selected].status)+')':''}.`:'Nenhum número selecionado.';if(records[selected]){$('personInput').value=records[selected].name;$('statusInput').value=records[selected].status}renderGrid()};
+  grid.appendChild(b)
+ }
+}
+function renderPeople(){
+ const list=$('peopleList'),q=$('searchInput').value.trim().toLocaleLowerCase('pt-BR');list.innerHTML='';
+ const groups={sold:{},reserved:{}};
+ Object.entries(records).forEach(([n,r])=>{if(!groups[r.status][r.name])groups[r.status][r.name]=[];groups[r.status][r.name].push(Number(n))});
+ let shown=0;
+ ['sold','reserved'].forEach(status=>Object.keys(groups[status]).sort((a,b)=>a.localeCompare(b,'pt-BR')).forEach(name=>{
+  const nums=groups[status][name].sort((a,b)=>a-b);
+  if(q&&!name.toLocaleLowerCase('pt-BR').includes(q)&&!nums.some(n=>String(n).includes(q)))return;
+  const div=document.createElement('div');div.className='person';
+  const info=document.createElement('div');const title=document.createElement('strong');title.textContent=name+': '+nums.map(n=>String(n).padStart(2,'0')).join(', ')+' ';
+  const statusSpan=document.createElement('span');statusSpan.className='status '+status;statusSpan.textContent=status==='sold'?'✅':'🏷';title.appendChild(statusSpan);
+  const small=document.createElement('small');small.textContent=statusLabel(status)+' · '+nums.length+' número(s)';info.append(title,small);
+  const edit=document.createElement('button');edit.textContent='Editar';edit.onclick=()=>{const first=nums[0];selected=first;$('numberInput').value=first;$('personInput').value=name;$('statusInput').value=status;$('selectionMessage').textContent=`Número ${first} selecionado para edição.`;renderGrid();$('numberInput').focus()};
+  div.append(info,edit);list.appendChild(div);shown++;
+ }));
+ if(!shown){const p=document.createElement('p');p.className='empty';p.textContent='Nenhuma pessoa encontrada. Marque um número para começar.';list.appendChild(p)}
+}
+function render(){const c=getCounts();$('countMarked').textContent=c.marked;$('countSold').textContent=c.sold;$('countReserved').textContent=c.reserved;renderGrid();renderPeople()}
+$('applyBtn').onclick=()=>{
+ const n=Number($('numberInput').value),name=$('personInput').value.trim(),status=$('statusInput').value;
+ if(!validNum(n)){alert('Digite um número de 1 a 150.');return}
+ if(!name){alert('Digite o nome da pessoa.');$('personInput').focus();return}
+ if(records[n]&&(!confirm(`O número ${n} já está ${records[n].status==='sold'?'vendido':'reservado'} para ${records[n].name}. Deseja substituir essa marcação?`)))return;
+ records[n]={name,status};selected=n;save();render();$('selectionMessage').textContent=`Número ${n} marcado como ${statusLabel(status)} para ${name}.`;
+};
+$('clearBtn').onclick=()=>{
+ const n=Number($('numberInput').value||selected);
+ if(!validNum(n)){alert('Selecione ou digite um número de 1 a 150.');return}
+ if(!records[n]){alert(`O número ${n} já está livre.`);return}
+ if(!confirm(`Desmarcar o número ${n} de ${records[n].name}?`))return;
+ delete records[n];selected=n;save();render();$('personInput').value='';$('selectionMessage').textContent=`Número ${n} desmarcado e agora está livre.`;
+};
+$('searchInput').addEventListener('input',renderPeople);
+$('exportBtn').onclick=()=>{
+ const lines=['CONTROLE DA RIFA ELLENA MAVIE','',`Vendidos: ${getCounts().sold}`,`Reservados: ${getCounts().reserved}`,''];
+ ['sold','reserved'].forEach(s=>{lines.push(s==='sold'?'VENDIDOS':'RESERVADOS');const g={};Object.entries(records).filter(([n,r])=>r.status===s).forEach(([n,r])=>{(g[r.name]??=[]).push(Number(n))});Object.keys(g).sort((a,b)=>a.localeCompare(b,'pt-BR')).forEach(name=>lines.push(`${name}: ${g[name].sort((a,b)=>a-b).map(n=>String(n).padStart(2,'0')).join(', ')} ${s==='sold'?'✅':'🏷'}`));lines.push('')});
+ const blob=new Blob([lines.join('\n')],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='controle-rifa-ellena-mavie.txt';a.click();URL.revokeObjectURL(url);
+};
+render();
+</script>
+</body>
+</html>
